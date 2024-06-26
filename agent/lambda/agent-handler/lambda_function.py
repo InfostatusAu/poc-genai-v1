@@ -9,7 +9,7 @@ import datetime
 import dateutil.parser
 
 from chat import Chat
-from genai_agent import FSIAgent
+from genai_agent import GenAIAgent
 from boto3.dynamodb.conditions import Key
 from langchain.llms.bedrock import Bedrock
 
@@ -749,7 +749,7 @@ def invoke_agent(prompt):
     llm = Bedrock(client=bedrock_client, model_id="anthropic.claude-v2:1", region_name=os.environ[
         'AWS_REGION'])  # anthropic.claude-instant-v1 / anthropic.claude-3-sonnet-20240229-v1:0
     llm.model_kwargs = {'max_tokens_to_sample': 350}
-    lex_agent = FSIAgent(llm, chat.memory)
+    lex_agent = GenAIAgent(llm, chat.memory)
 
     # formatted_prompt = "\n\nHuman: " + prompt + " \n\nAssistant:"
     message = lex_agent.run(input=prompt)
@@ -767,7 +767,7 @@ def genai_intent(intent_request):
     if intent_request['invocationSource'] == 'DialogCodeHook':
         prompt = intent_request['inputTranscript']
         output = invoke_agent(prompt)
-        print("FSI Agent response: " + str(output))
+        print("GenAI Agent response: " + str(output))
 
     return elicit_intent(intent_request, session_attributes, output)
 
