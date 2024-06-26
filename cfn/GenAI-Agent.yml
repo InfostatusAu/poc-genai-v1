@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "GenAI Financial Services Agent powered by Amazon Bedrock, Amazon DynamoDB, AWS Lambda, Amazon Lex, and Amazon Kendra"
+Description: "Test GenAI PoC Project"
 Metadata:
   LICENSE: >-
     Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -33,9 +33,9 @@ Metadata:
         Parameters:
           - GitHubTokenSecretName
       - Label:
-          default: Kendra Web Crawler Root Domain
+          default: S3 Knowledge Bucket
         Parameters:
-          - KendraWebCrawlerUrl
+          - KnowledgeBucketName
       - Label:
           default: Amplify Source Repository URL
         Parameters:
@@ -55,8 +55,8 @@ Metadata:
         default: cfnresponse-layer-arn
       GitHubTokenSecretName:
         default: your-github-token-secret-name
-      KendraWebCrawlerUrl:
-        default: your-kendra-root-domain
+      KnowledgeBucketName:
+        default: your-knowledge-bucket-name
       AmplifyRepository:
         default: your-forked-repo-url
 
@@ -74,7 +74,7 @@ Parameters:
     Type: String
     Default: /agent/lambda/agent-handler/agent_deployment_package.zip
   LexBotS3Key:
-    Description: S3 key for Lex bot deployment package. 
+    Description: S3 key for Lex bot deployment package.
     Type: String
     Default: /agent/bot/lex.zip
   BedrockLangChainPDFRWLayerArn:
@@ -86,18 +86,18 @@ Parameters:
     Type: String
     Default: cfnresponse-layer-arn
   GitHubTokenSecretName:
-    Description: GitHub PAT secret name. 
+    Description: GitHub PAT secret name.
     Type: String
     NoEcho: true
     Default: your-github-token-secret-name
-  KendraWebCrawlerUrl:
-    Description: Kendra Web Crawler root domain URL. 
+  KnowledgeBucketName:
+    Description: S3 Bucket Name for Knowledge Documents.
     Type: String
-    Default: your-kendra-root-domain
+    Default: your-knowledge-bucket-name
   AmplifyRepository:
-    Description: Source repository for AWS Amplify frontend. 
+    Description: Source repository for AWS Amplify frontend.
     Type: String
-    Default: your-forked-repo-url
+    Default: your-amplify-repo-url
 
 Resources:
   UserPendingAccountsTable:
@@ -180,7 +180,7 @@ Resources:
               Service: lambda.amazonaws.com
         Version: 2012-10-17
       ManagedPolicyArns:
-        - !Join 
+        - !Join
           - ''
           - - 'arn:'
             - !Ref 'AWS::Partition'
@@ -213,7 +213,7 @@ Resources:
               - s3:GetObject
               - s3:PutObject
             Effect: Allow
-            Resource: '*'        
+            Resource: '*'
         Version: 2012-10-17
       Roles:
         - !Ref AgentHandlerServiceRole
@@ -221,7 +221,7 @@ Resources:
   AgentHandlerFunction:
     Type: AWS::Lambda::Function
     Properties:
-      Description: Lambda handler for GenAI FSI Agent.
+      Description: Lambda handler for GenAI Agent.
       FunctionName: !Sub ${AWS::StackName}-GenAILexHandler
       Code:
         S3Bucket: !Ref S3ArtifactBucket
@@ -246,7 +246,7 @@ Resources:
 
   LexLambdaPermissions:
     Type: AWS::Lambda::Permission
-    Properties: 
+    Properties:
       Action: lambda:InvokeFunction
       FunctionName: !Ref AgentHandlerFunction
       Principal: 'lexv2.amazonaws.com'
@@ -256,7 +256,7 @@ Resources:
     Properties:
       Description: Lambda function to load the plan catalog.
       FunctionName: !Sub ${AWS::StackName}-DDBDataLoader
-      Code: 
+      Code:
         S3Bucket: !Ref S3ArtifactBucket
         S3Key: !Ref DataLoaderS3Key
       Runtime: python3.11
@@ -294,7 +294,7 @@ Resources:
           Version: '2012-10-17'
           Statement:
           - Effect: Allow
-            Action: 
+            Action:
             - 'amplify:Create*'
             - 'amplify:Get*'
             - 'amplify:List*'
@@ -306,7 +306,7 @@ Resources:
   AmplifyApp:
     Type: AWS::Amplify::App
     Properties:
-      Name: !Sub ${AWS::StackName}-AnyCompany-Website
+      Name: !Sub ${AWS::StackName}-poc-genai-Website
       Repository: !Ref AmplifyRepository
       BuildSpec: |
         frontend:
@@ -322,7 +322,7 @@ Resources:
           cache:
             paths: []
       AccessToken: !Sub "{{resolve:secretsmanager:${GitHubTokenSecretName}}}"
-      Description: AnyCompany website
+      Description: POC-GenAI website
       IAMServiceRole: !GetAtt AmplifyRole.Arn
 
   AmplifyBranch:
@@ -411,6 +411,8 @@ Resources:
             Resource:
             - !Sub arn:aws:s3:::${S3ArtifactBucket}
             - !Sub arn:aws:s3:::${S3ArtifactBucket}/*
+            - !Sub arn:aws:s3:::${KnowledgeBucketName}
+            - !Sub arn:aws:s3:::${KnowledgeBucketName}/*
           - Effect: Allow
             Action:
             - 'kendra:PutPrincipalMapping'
@@ -421,25 +423,17 @@ Resources:
             - 'kendra:BatchDeleteDocument'
             Resource: '*'
 
-  KendraWebCrawler:
+  KendraS3DataSource:
     DependsOn: KendraIndex
     Type: AWS::Kendra::DataSource
     Properties:
-      Name: !Sub ${AWS::StackName}-WebCrawler
-      Type: WEBCRAWLER
+      Name: !Sub ${AWS::StackName}-KendraS3DataSouce
+      Type: S3
       IndexId: !GetAtt KendraIndex.Id
       RoleArn: !GetAtt KendraDataSourceRole.Arn
       DataSourceConfiguration:
-        WebCrawlerConfiguration: 
-            CrawlDepth: 3
-            MaxContentSizePerPageInMegaBytes: 50
-            MaxLinksPerPage: 20
-            MaxUrlsPerMinuteCrawlRate: 100
-            Urls: 
-              SeedUrlConfiguration:
-                SeedUrls: 
-                  - !Ref KendraWebCrawlerUrl
-                WebCrawlerMode: SUBDOMAINS
+        S3Configuration:
+          BucketName: !Ref KnowledgeBucketName
 
   LexBotRole:
     Type: AWS::IAM::Role
@@ -470,13 +464,13 @@ Resources:
     DependsOn: LexBotRole
     Type: AWS::Lex::Bot
     Properties:
-        Name: !Sub ${AWS::StackName}-FSI-Agent
-        BotFileS3Location: 
+        Name: !Sub ${AWS::StackName}-Agent
+        BotFileS3Location:
           S3Bucket: !Ref S3ArtifactBucket
           S3ObjectKey: !Ref LexBotS3Key
-        DataPrivacy: 
+        DataPrivacy:
           ChildDirected: false
-        Description: 'Financial Services Agent'
+        Description: 'GenAI Agent'
         IdleSessionTTLInSeconds: 900
         RoleArn: !GetAtt LexBotRole.Arn
 
@@ -489,8 +483,8 @@ Outputs:
     Value: !GetAtt AmplifyBranch.BranchName
   KendraIndexID:
     Value: !GetAtt KendraIndex.Id
-  KendraWebCrawlerDataSourceID:
-    Value: !GetAtt KendraWebCrawler.Id
+  KendraS3DataSourceID:
+    Value: !GetAtt KendraS3DataSource.Id
   KendraDataSourceRoleARN:
     Value: !GetAtt KendraDataSourceRole.Arn
   LambdaARN:

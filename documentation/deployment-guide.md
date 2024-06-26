@@ -48,7 +48,7 @@ cfn_nag_scan --input-path cfn/GenAI-FSI-Agent.yml
 ```
 
 ## Deployment 
-The solution deployment automation script allows for automated solution provisioning through a parameterized CloudFormation template, [GenAI-FSI-Agent.yml](../cfn/GenAI-FSI-Agent.yml), which includes the following resources:
+The solution deployment automation script allows for automated solution provisioning through a parameterized CloudFormation template, [GenAI-FSI-Agent.yml](../cfn/GenAI-Agent.yml), which includes the following resources:
 
 - An AWS Amplify website to simulate your front-end environment.
 - An Amazon Lex bot configured through a bot import deployment package.
@@ -88,7 +88,7 @@ export KENDRA_WEBCRAWLER_URL=<YOUR-WEBSITE-ROOT-DOMAIN> # Public or internal HTT
 export AWS_REGION=<YOUR-STACK-REGION> # Stack deployment region
 ```
 
-3. Finally, run the shell script to deploy the solution's resource, including the [GenAI-FSI-Agent.yml](../cfn/GenAI-FSI-Agent.yml) CloudFormation stack:
+3. Finally, run the shell script to deploy the solution's resource, including the [GenAI-FSI-Agent.yml](../cfn/GenAI-Agent.yml) CloudFormation stack:
 
 ```sh
 source ./create-stack.sh
