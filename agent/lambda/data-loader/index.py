@@ -17,6 +17,7 @@ def handler(event, context):
 
     request_type = event.get('RequestType')
     if request_type == 'Create' or request_type == 'Update':
+        # load mock data into DynamoDB table: user_accounts_table_name
         try:
             with open('MOCK_DATA.json', 'r') as file:
                 claims_data = json.load(file)
