@@ -14,19 +14,25 @@ ts = TypeSerializer()
 conversation_index_table_name = os.environ.get('CONVERSATION_INDEX_TABLE')
 conversation_table_name = os.environ.get('CONVERSATION_TABLE')
 
-class Chat():
+class Chat:
 
     def __init__(self, event):
-        print("Initializing Chat with FSI Agent")
+        self.chat_index = None
+        self.user_id = None
+        self.message_history = None
+        self.memory = None
+        print("Initializing Chat with GenAI Agent")
+        # Set up the chat memory:
         self.set_user_id(event)
-        self.set_chat_index()
-        self.set_memory(event)
+        self.set_chat_index()  # Chat index by user (user_id)
+        self.set_memory(event)  # Conversation memory by user_id and chat_index of that user
         self.create_new_chat()
 
     def set_memory(self, event):
+        # Create conversation id = combine user_id and chat_index of that user
         conversation_id = self.user_id + "-" + str(self.chat_index) 
         
-        # Set up conversation history
+        # Set up conversation history and store current event
         self.message_history = DynamoDBChatMessageHistory(table_name=conversation_table_name, session_id=conversation_id)
         self.message_history.add_user_message(event)
         
